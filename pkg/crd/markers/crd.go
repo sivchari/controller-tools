@@ -18,6 +18,7 @@ package markers
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -57,6 +58,11 @@ var CRDMarkers = []*definitionWithHelp{
 
 	must(markers.MakeDefinition("kubebuilder:selectablefield", markers.DescribesType, SelectableField{})).
 		WithHelp(SelectableField{}.Help()),
+
+	must(markers.MakeDefinition("kubebuilder:externalDocs", markers.DescribesField, ExternalDocs{})).
+		WithHelp(ExternalDocs{}.Help()),
+	must(markers.MakeDefinition("kubebuilder:externalDocs", markers.DescribesType, ExternalDocs{})).
+		WithHelp(ExternalDocs{}.Help()),
 }
 
 // TODO: categories and singular used to be annotations types
@@ -417,5 +423,30 @@ func (s SelectableField) ApplyToCRD(crd *apiextensionsv1.CustomResourceDefinitio
 		JSONPath: s.JSONPath,
 	})
 
+	return nil
+}
+
+// +controllertools:marker:generateHelp:category=CRD
+
+// ExternalDocs specifies external documentation for this field or type.
+//
+// The url is required and must be a valid URL. The description is optional
+// and provides a short description of the external documentation.
+type ExternalDocs struct {
+	// URL specifies the URL for the target documentation.
+	URL string `marker:"url"`
+
+	// Description is a short description of the target documentation.
+	Description string `marker:",optional"`
+}
+
+func (m ExternalDocs) ApplyToSchema(schema *apiextensionsv1.JSONSchemaProps) error {
+	if _, err := url.ParseRequestURI(m.URL); err != nil {
+		return fmt.Errorf("invalid url %q in kubebuilder:externalDocs marker: %w", m.URL, err)
+	}
+	schema.ExternalDocs = &apiextensionsv1.ExternalDocumentation{
+		URL:         m.URL,
+		Description: m.Description,
+	}
 	return nil
 }
