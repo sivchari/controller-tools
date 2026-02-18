@@ -18,6 +18,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 	// Group=testdata.kubebuilder.io, Version=v1
 	case v1.SchemeGroupVersion.WithKind("AssociativeType"):
 		return &apiv1.AssociativeTypeApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("ClusterScopedResource"):
+		return &apiv1.ClusterScopedResourceApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ContainsNestedMap"):
 		return &apiv1.ContainsNestedMapApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("CronJob"):

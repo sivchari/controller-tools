@@ -781,3 +781,27 @@ type EmbeddedExternalSpec struct {
 	// Extra is an additional field.
 	Extra string `json:"extra,omitempty"`
 }
+
+// ClusterScopedResourceSpec defines the desired state of ClusterScopedResource
+type ClusterScopedResourceSpec struct{}
+
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:scope=Cluster
+
+// ClusterScopedResource is a cluster-scoped resource for testing applyconfiguration generation
+type ClusterScopedResource struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec ClusterScopedResourceSpec `json:"spec,omitempty"`
+}
+
+// +kubebuilder:object:root=true
+
+// ClusterScopedResourceList contains a list of ClusterScopedResource
+type ClusterScopedResourceList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ClusterScopedResource `json:"items"`
+}

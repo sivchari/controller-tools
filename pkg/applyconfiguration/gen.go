@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/gengo/v2/types"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -271,6 +272,11 @@ func (ctx *ObjectGenCtx) generateForPackage(root *loader.Package) error {
 		if !comments.Has("// +genclient") {
 			typ.CommentLines = append(typ.CommentLines, "+genclient")
 		}
+
+		// Check if the resource is cluster-scoped
+		if isCRDClusterScoped(info) && !comments.Has("// +genclient:nonNamespaced") {
+			typ.CommentLines = append(typ.CommentLines, "+genclient:nonNamespaced")
+		}
 	}); err != nil {
 		return err
 	}
@@ -281,4 +287,16 @@ func (ctx *ObjectGenCtx) generateForPackage(root *loader.Package) error {
 	}
 
 	return nil
+}
+
+func isCRDClusterScoped(info *markers.TypeInfo) bool {
+	resourceMarker := info.Markers.Get(isCRDMarker.Name)
+	if resourceMarker == nil {
+		return false
+	}
+	resource, ok := resourceMarker.(crdmarkers.Resource)
+	if !ok {
+		return false
+	}
+	return resource.Scope == string(apiextensionsv1.ClusterScoped)
 }
