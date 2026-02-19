@@ -110,6 +110,12 @@ pushd cmd/controller-gen > /dev/null
   go generate
 popd > /dev/null
 
+if ! git diff --quiet --exit-code; then
+  header_text "go generate produced changes"
+  git diff
+  exit 1
+fi
+
 header_text "running golangci-lint"
 make lint
 
