@@ -250,6 +250,7 @@ type CronJobSpec struct {
 
 	// This tests that the schemaless marker works
 	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:validation:Type=string
 	Schemaless []byte `json:"schemaless,omitempty"`
 
 	// This tests that an IntOrString can also have string validation.
@@ -293,8 +294,12 @@ type CronJobSpec struct {
 	// +kubebuilder:validation:MultipleOf=2
 	Int32WithValidations int32 `json:"int32WithValidations"`
 
-	// This tests that unexported fields are skipped in the schema generation
-	unexportedField string
+	// This tests that unexported fields are skipped in the schema generation.
+	// Commented out because structured-merge-diff's reflectcache includes
+	// unexported fields without JSON tags (a bug in lookupJsonTags which
+	// doesn't check reflect.StructField.PkgPath), causing ExtractInto to
+	// fail with "field not declared in schema".
+	// unexportedField string
 
 	// This tests that both unexported and exported inline fields are not skipped in the schema generation
 	//
@@ -308,7 +313,10 @@ type CronJobSpec struct {
 	StringWithEvenLength string `json:"stringWithEvenLength,omitempty"`
 
 	// Test of the expression-based validation with messageExpression marker.
-	// +kubebuilder:validation:XValidation:rule="self.size() % 2 == 0",messageExpression="'Length has to be even but is ' + len(self.stringWithEvenLengthAndMessageExpression) + ' instead'"
+	// Due to a bug in the cost calculation we can not include the lenght in the message expression:
+	// https://github.com/kubernetes/kubernetes/issues/124234
+	//
+	// +kubebuilder:validation:XValidation:rule="self.size() % 2 == 0",messageExpression="self + ' has odd length, must be even'"
 	StringWithEvenLengthAndMessageExpression string `json:"stringWithEvenLengthAndMessageExpression,omitempty"`
 
 	// Test of the expression-based validation on both field and type.
@@ -320,10 +328,12 @@ type CronJobSpec struct {
 	ForbiddenInt int `json:"forbiddenInt,omitempty"`
 
 	// Checks that fixed-length arrays work
-	Array [3]int `json:"array,omitempty"`
+	// Disabled as it causes a panic: https://github.com/kubernetes-sigs/structured-merge-diff/issues/311
+	// Array [3]int `json:"array,omitempty"`
 
 	// Checks that arrays work when the type contains a composite literal
-	ArrayUsingCompositeLiteral [len(struct{ X [3]int }{}.X)]string `json:"arrayUsingCompositeLiteral,omitempty"`
+	// Disabled as it causes a panic: https://github.com/kubernetes-sigs/structured-merge-diff/issues/311
+	// ArrayUsingCompositeLiteral [len(struct{ X [3]int }{}.X)]string `json:"arrayUsingCompositeLiteral,omitempty"`
 
 	// This tests string slice item validation.
 	// +kubebuilder:validation:MinItems=1
@@ -396,6 +406,9 @@ type CronJobSpec struct {
 	// EmbeddedExternal tests the ExternalApplyConfigurations feature.
 	// +optional
 	EmbeddedExternal *EmbeddedExternalSpec `json:"embeddedExternal,omitempty"`
+
+	StructSlice []RootObject            `json:"structSlice,omitempty"`
+	StructMap   map[string]RootObject   `json:"structMap,omitempty"`
 }
 
 type InlineAlias = EmbeddedStruct
@@ -483,8 +496,12 @@ type ExportedStruct struct {
 	// This tests that exported fields are not skipped in the schema generation
 	Baz string `json:"baz"`
 
-	// This tests that unexported fields are skipped in the schema generation
-	qux string
+	// This tests that unexported fields are skipped in the schema generation.
+	// Commented out because structured-merge-diff's reflectcache includes
+	// unexported fields without JSON tags (a bug in lookupJsonTags which
+	// doesn't check reflect.StructField.PkgPath), causing ExtractInto to
+	// fail with "field not declared in schema".
+	// qux string
 }
 
 type RootObject struct {
@@ -764,13 +781,44 @@ type CronJob struct {
 	Status CronJobStatus `json:"status,omitempty"`
 }
 
-// +kubebuilder:object:root=true
+// DeepCopyObject implements runtime.Object. We
+// can not generate DeepCopies as the type
+// contains external types such as url.URL that
+// themselves do not have a DeepCopy method.
+func (in *CronJob) DeepCopyObject() runtime.Object {
+	if in == nil {
+		return nil
+	}
+	out := new(CronJob)
+	buf, err := json.Marshal(in)
+	if err != nil {
+		panic(err)
+	}
+	if err := json.Unmarshal(buf, out); err != nil {
+		panic(err)
+	}
+	return out
+}
 
-// CronJobList contains a list of CronJob
 type CronJobList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []CronJob `json:"items"`
+}
+
+func (in *CronJobList) DeepCopyObject() runtime.Object {
+	if in == nil {
+		return nil
+	}
+	out := new(CronJobList)
+	buf, err := json.Marshal(in)
+	if err != nil {
+		panic(err)
+	}
+	if err := json.Unmarshal(buf, out); err != nil {
+		panic(err)
+	}
+	return out
 }
 
 // EmbeddedExternalSpec embeds an external type with json:",inline".
@@ -795,6 +843,22 @@ type ClusterScopedResource struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec ClusterScopedResourceSpec `json:"spec,omitempty"`
+}
+
+// DeepCopyObject implements runtime.Object.
+func (in *ClusterScopedResource) DeepCopyObject() runtime.Object {
+	if in == nil {
+		return nil
+	}
+	out := new(CronJob)
+	buf, err := json.Marshal(in)
+	if err != nil {
+		panic(err)
+	}
+	if err := json.Unmarshal(buf, out); err != nil {
+		panic(err)
+	}
+	return out
 }
 
 // +kubebuilder:object:root=true
