@@ -91,6 +91,7 @@ test: ## Run the test.sh script which will check all.
 
 test-all:
 	$(MAKE) verify-modules
+	$(MAKE) verify-k8s-deps
 	$(MAKE) test
 
 .PHONY: modules
@@ -101,6 +102,10 @@ modules: ## Runs go mod to ensure modules are up to date.
 		echo "go mod tidy in $${dir}"; \
 		(cd $${dir} && go mod tidy); \
 	done
+
+.PHONY: verify-k8s-deps
+verify-k8s-deps:
+	./hack/verify-k8s-deps.sh
 
 .PHONY: verify-modules
 verify-modules: modules ## Verify go modules are up to date
